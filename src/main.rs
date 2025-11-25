@@ -1,12 +1,11 @@
 #![no_std]
 #![no_main]
 
+mod exclusive_spi_device;
 mod jd79661;
 
 use defmt::*;
 use defmt_rtt as _;
-use embedded_hal::delay::DelayNs;
-use embedded_hal::digital::OutputPin;
 use embedded_hal::spi;
 
 #[cfg(target_arch = "riscv32")]
@@ -27,7 +26,10 @@ use hal::Spi;
 use hal::fugit::RateExtU32;
 use hal::gpio::FunctionSpi;
 
-use crate::jd79661::{ExclusiveSpiDevice, HEIGHT, JD79661, WIDTH};
+use crate::{
+    exclusive_spi_device::ExclusiveSpiDevice,
+    jd79661::{HEIGHT, JD79661, WIDTH},
+};
 
 // use bsp::entry;
 // use bsp::hal;
@@ -104,16 +106,6 @@ fn _main() -> Result<(), core::convert::Infallible> {
         &mut pac.RESETS,
     );
 
-    let mut led_pin = pins.gpio25.into_push_pull_output();
-    // loop {
-    //     led_pin.set_high().unwrap();
-    //     timer.delay_ms(200);
-    //     led_pin.set_low().unwrap();
-    //     timer.delay_ms(200);
-    // }
-
-    led_pin.set_high()?;
-
     let sclk = pins.gpio2.into_function::<FunctionSpi>();
     let mosi = pins.gpio3.into_function::<FunctionSpi>();
     let spi: Spi<_, _, _, 8> =
@@ -124,12 +116,7 @@ fn _main() -> Result<(), core::convert::Infallible> {
     let cs = pins.gpio8.into_push_pull_output();
     let busy = pins.gpio9.into_pull_down_input();
 
-    let mut screen = JD79661::begin(
-        ExclusiveSpiDevice::new(spi, cs, timer),
-        dc.into_dyn_pin(),
-        rst.into_dyn_pin(),
-        busy.into_dyn_pin(),
-    )?;
+    let mut screen = JD79661::new(ExclusiveSpiDevice::new(spi, cs, timer), dc, rst, busy)?;
 
     screen.power_up(&mut timer)?;
 
@@ -148,12 +135,8 @@ fn _main() -> Result<(), core::convert::Infallible> {
         }
     }
 
-    led_pin.set_low()?;
-
     screen.write_buffer(&buffer)?;
-    screen.update(&mut timer)?;
-    timer.delay_ms(1000);
-
+    screen.update_deepsleep(&mut timer)?;
     Ok(())
 }
 
