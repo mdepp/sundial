@@ -1,6 +1,9 @@
 use embedded_graphics::{pixelcolor::raw::RawU2, prelude::*, primitives::Rectangle};
 
-use crate::jd79661::{HEIGHT, PIXDEPTH, WIDTH};
+use crate::{
+    jd79661::{HEIGHT, PIXDEPTH, WIDTH},
+    theme::Theme,
+};
 
 /// embedded_graphics support for the JD79661
 
@@ -93,5 +96,25 @@ impl DrawTarget for JD79661Display {
             self.buffer[byte_index] = byte;
         }
         Ok(())
+    }
+}
+
+pub struct JD79661Theme;
+
+impl JD79661Theme {
+    pub fn new() -> Self {
+        Self {}
+    }
+}
+
+impl Theme for JD79661Theme {
+    type Color = JD79661Color;
+
+    fn background(&self) -> Self::Color {
+        Self::Color::Black
+    }
+
+    fn text(&self) -> Self::Color {
+        Self::Color::White
     }
 }
