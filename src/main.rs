@@ -1,10 +1,12 @@
 #![no_std]
 #![no_main]
 
+mod calendar;
 mod exclusive_spi_device;
 mod jd79661;
 mod jd79661_display;
 
+use calendar::moon;
 use defmt::*;
 use defmt_rtt as _;
 use embedded_graphics::Drawable;
@@ -13,7 +15,9 @@ use embedded_graphics::mono_font::ascii::FONT_8X13_BOLD;
 use embedded_graphics::prelude::{Dimensions, Primitive};
 use embedded_graphics::primitives::PrimitiveStyle;
 use embedded_graphics::text::{Alignment, Text};
+use embedded_hal::delay::DelayNs;
 use embedded_hal::spi;
+use fugit::TimerInstantU64;
 
 #[cfg(target_arch = "riscv32")]
 use panic_halt as _;
@@ -75,6 +79,26 @@ fn main() -> ! {
     loop {}
 }
 
+struct RealTimeClock {
+    instant: TimerInstantU64<1_000_000>,
+    timestamp: u64,
+}
+
+impl RealTimeClock {
+    fn new(timer: hal::Timer, timestamp: u64) -> Self {
+        Self {
+            instant: timer.get_counter(),
+            timestamp,
+        }
+    }
+
+    fn get_timestamp(&self, timer: hal::Timer) -> u64 {
+        let d1 = timer.get_counter().duration_since_epoch().to_secs();
+        let d2 = self.instant.duration_since_epoch().to_secs();
+        d1 - d2 + self.timestamp
+    }
+}
+
 // Do the actual logic in a helper function as it's more convenient to return
 // a result
 fn _main() -> Result<(), core::convert::Infallible> {
@@ -114,6 +138,8 @@ fn _main() -> Result<(), core::convert::Infallible> {
         &mut pac.RESETS,
     );
 
+    let clock = RealTimeClock::new(timer, env!("BUILD_TIMESTAMP").parse().unwrap());
+
     let sclk = pins.gpio2.into_function::<FunctionSpi>();
     let mosi = pins.gpio3.into_function::<FunctionSpi>();
     let spi: Spi<_, _, _, 8> =
@@ -129,23 +155,42 @@ fn _main() -> Result<(), core::convert::Infallible> {
     screen.power_up(&mut timer)?;
 
     let mut display = JD79661Display::default();
-    display
-        .bounding_box()
-        .into_styled(PrimitiveStyle::with_fill(JD79661Color::Black))
+
+    loop {
+        display
+            .bounding_box()
+            .into_styled(PrimitiveStyle::with_fill(JD79661Color::Black))
+            .draw(&mut display)?;
+
+        let moon_phase = moon::get_phase(clock.get_timestamp(timer));
+        let moon_phase_label = moon::get_phase_label(moon_phase);
+        let moon_illumination = moon::get_illumination(moon_phase);
+
+        let mut buf = [0u8; 64];
+        let text = format_no_std::show(
+            &mut buf,
+            format_args!(
+                "Phase {:02.0}%\nIllum {:02.0}%\n{}",
+                moon_phase * 100.0,
+                moon_illumination * 100.0,
+                moon_phase_label
+            ),
+        )
+        .unwrap();
+
+        Text::with_alignment(
+            text,
+            display.bounding_box().center(),
+            MonoTextStyle::new(&FONT_8X13_BOLD, JD79661Color::White),
+            Alignment::Center,
+        )
         .draw(&mut display)?;
 
-    let text = "Hello, world";
-    Text::with_alignment(
-        text,
-        display.bounding_box().center(),
-        MonoTextStyle::new(&FONT_8X13_BOLD, JD79661Color::White),
-        Alignment::Center,
-    )
-    .draw(&mut display)?;
+        screen.write_buffer(display.buffer())?;
+        screen.update_sleep(&mut timer)?;
 
-    screen.write_buffer(display.buffer())?;
-    screen.update_deepsleep(&mut timer)?;
-    Ok(())
+        timer.delay_ms(1000 * 3600); // Wait an hour
+    }
 }
 
 /// Program metadata for `picotool info`

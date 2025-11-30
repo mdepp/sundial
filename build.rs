@@ -9,6 +9,7 @@
 use std::fs::{File, read_to_string};
 use std::io::Write;
 use std::path::PathBuf;
+use std::time::UNIX_EPOCH;
 
 use regex::Regex;
 
@@ -63,6 +64,12 @@ fn main() {
     let mut f = File::create(out.join("rp2350_riscv.x")).unwrap();
     f.write_all(rp2350_riscv_x).unwrap();
     println!("cargo:rerun-if-changed=rp2350_riscv.x");
+
+    let unix_time = std::time::SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap()
+        .as_secs();
+    println!("cargo::rustc-env=BUILD_TIMESTAMP={unix_time}");
 
     println!("cargo:rerun-if-changed=build.rs");
 }
