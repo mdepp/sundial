@@ -24,6 +24,10 @@ make run-simulator  # or simply "cargo run"
 
 The `rust-analyzer.cargo.target` key in `.vscode/settings.json` configures the
 target that the vscode rust-analyzer extension uses to make its diagnostics.
-By default this is set up for the raspberry pi pico, which means it'll show a
-bunch of errors in the `simulator` package. So when you're modifying the
-`simulator` package you probably want to temporarily comment out that line.
+By default this is set up for the simulator, which means it'll not necessarily
+show errors correctly for the `sundial` package. So when you're editing the
+`sundial` package, you probably want to temporarily uncomment that line:
+
+```
+  "rust-analyzer.cargo.target": "thumbv6m-none-eabi",
+```
