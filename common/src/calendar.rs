@@ -86,3 +86,28 @@ pub mod moon {
         low_val * (1.0 - a) + high_val * a
     }
 }
+
+pub mod orbit {
+    use crate::rtclock;
+
+    //the difference between these doesn't matter, but doing this brings me joy
+    const TROPICAL_YEAR_SECS: u64 = 31_556_925; //used for things that depend on axial tilt (equinoxes etc)
+    const SIDEREAL_YEAR_SECS: u64 = 31_558_150; //used for other orbit dependant things (meteors etc)
+
+    const REFERENCE_TIMESTAMP: rtclock::InstantSecs = rtclock::InstantSecs::from_ticks(1735689600); // Jan 1, 2025 midnight UTC
+
+    //amount of the year elapsed as a portion per unit
+    fn get_portion_elapsed(instant: rtclock::InstantSecs, sidereal: bool) -> f64 {
+        let second_since_reference = (instant - REFERENCE_TIMESTAMP).to_secs();
+        if sidereal {
+            let remainder = second_since_reference % SIDEREAL_YEAR_SECS;
+            let elapsed = (remainder as f64) / (SIDEREAL_YEAR_SECS as f64);
+        } else {
+            let remainder = second_since_reference % TROPICAL_YEAR_SECS;
+            let elapsed = (remainder as f64) / (TROPICAL_YEAR_SECS as f64);
+        }
+        elapsed
+    }
+
+    //pub fn get_next_shower(instant: rtclock::InstantSecs) -> ()
+}
