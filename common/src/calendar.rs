@@ -96,17 +96,27 @@ pub mod orbit {
 
     const REFERENCE_TIMESTAMP: rtclock::InstantSecs = rtclock::InstantSecs::from_ticks(1735689600); // Jan 1, 2025 midnight UTC
 
+    //(roughly) the angle in degrees between the earth's axis and the sun at the reference timestamp
+    const ANGLE_AT_REFERENCE: f64 = 191.3449552; //we dont at all need this much precision but whatever
+
     //amount of the year elapsed as a portion per unit
     fn get_portion_elapsed(instant: rtclock::InstantSecs, sidereal: bool) -> f64 {
         let second_since_reference = (instant - REFERENCE_TIMESTAMP).to_secs();
-        if sidereal {
+        let elapsed = if sidereal {
             let remainder = second_since_reference % SIDEREAL_YEAR_SECS;
-            let elapsed = (remainder as f64) / (SIDEREAL_YEAR_SECS as f64);
+            (remainder as f64) / (SIDEREAL_YEAR_SECS as f64)
         } else {
             let remainder = second_since_reference % TROPICAL_YEAR_SECS;
-            let elapsed = (remainder as f64) / (TROPICAL_YEAR_SECS as f64);
-        }
+            (remainder as f64) / (TROPICAL_YEAR_SECS as f64)
+        };
         elapsed
+    }
+
+    //(roughly) the angle between the earth's axis and the sun at the given time
+    //(the summer solstice would be 0 degrees)
+    pub fn get_axis_angle(instant: rtclock::InstantSecs) -> f64 {
+        let elapsed = get_portion_elapsed(instant, false);
+        (elapsed * 360.0 + ANGLE_AT_REFERENCE) % 360.0
     }
 
     //pub fn get_next_shower(instant: rtclock::InstantSecs) -> ()
