@@ -119,23 +119,16 @@ pub mod orbit {
         (elapsed * 360.0 + ANGLE_AT_REFERENCE) % 360.0
     }
 
-    //gets the next time an angle will occur
+    //gets when a given angle occured/will occur
     fn get_time_from_angle(instant: rtclock::InstantSecs, angle: f64) -> rtclock::InstantSecs {
         let current_angle = get_axis_angle(instant);
-
-        let seconds_to_angle = if angle >= current_angle {
-            (angle - current_angle) * (TROPICAL_YEAR_SECS as f64 / 360.0)
-        } else {
-            (360.0 + angle - current_angle) * (TROPICAL_YEAR_SECS as f64 / 360.0)
-        };
+        let seconds_to_angle = (angle - current_angle) * (TROPICAL_YEAR_SECS as f64 / 360.0); //can be negative
 
         rtclock::InstantSecs::from_ticks(instant.ticks() + (seconds_to_angle as u64 * 10_000_000))
     }
 
     //returns:
     //(label of next period, timestamp for the peak of the period, whether the period is currently ongoing)
-
-    //this doesnt work right now btw
     pub fn get_next_cardinal_date(
         instant: rtclock::InstantSecs,
     ) -> (&'static str, rtclock::InstantSecs, bool) {
@@ -153,8 +146,12 @@ pub mod orbit {
             _ if angle <= 180.5 => ("Winter Solstice", get_time_from_angle(instant, 180.0), true),
             _ if angle <= 269.5 => ("Spring Equinox", get_time_from_angle(instant, 270.0), false),
             _ if angle <= 270.5 => ("Spring Equinox", get_time_from_angle(instant, 270.0), true),
-            _ if angle <= 359.5 => ("Summer Solstice", get_time_from_angle(instant, 0.0), false),
-            _ => ("Summer Solstice", get_time_from_angle(instant, 0.0), true),
+            _ if angle <= 359.5 => (
+                "Summer Solstice",
+                get_time_from_angle(instant, 360.0),
+                false,
+            ),
+            _ => ("Summer Solstice", get_time_from_angle(instant, 360.0), true),
         }
     }
 
